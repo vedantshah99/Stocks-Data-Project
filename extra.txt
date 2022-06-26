@@ -95,4 +95,3 @@ while i < len(pages):
 
     #html_text = requests.get(link).text
     #soup = BeautifulSoup(html_text, 'lxml')
-    ///////////////////////////////////////////////////////////////////////////////////

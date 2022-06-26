@@ -1,5 +1,8 @@
 from xml.dom.minidom import Element
 from selenium import webdriver
+from selenium.webdriver import Firefox
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,9 +15,15 @@ import requests
 import csv
 
 #driver setup
-chrome_driver = 'C:\\Users\\aayur\\OneDrive\\Desktop\\Drivers\\chromedriver.exe'
-driver = webdriver.Chrome(chrome_driver)
-driver.get('https://www.sec.gov/edgar/search/#/q=covid&filter_forms=10-Q')
+chrome_driver = 'C:\webdrivers\chromedriver.exe'
+profile_path = r'C:\Users\aayur\AppData\Roaming\Mozilla\Firefox\Profiles\tc9vu9fu.default'
+options=Options()
+options.set_preference('profile', profile_path)
+service = Service(r'C:\webdrivers\geckodriver.exe')
+
+#driver = Firefox(service=service, options=options)
+driver = webdriver.Firefox(service=service, options=options)
+driver.get('https://www.sec.gov/edgar/search/#/q=covid&dateRange=custom&startdt=2017-06-26&enddt=2020-05-27')
 
 def variance(data):
     n = len(data)
@@ -24,40 +33,50 @@ def variance(data):
     return variance
 
 def findVar(ticker, startDate, endDate):
-    finance_driver = webdriver.Chrome(chrome_driver)
-    finance_driver.get('https://finance.yahoo.com/')
+    driver.execute_script("window.open('https://finance.yahoo.com/', 'new_window')")
+    driver.switch_to.window(driver.window_handles[1])
+
+    #closing pop-up and typing in company name
     time.sleep(3)
-    webdriver.ActionChains(finance_driver).send_keys(Keys.ESCAPE).perform()
+    webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
     time.sleep(3)
     print(ticker)
-    searchBoxYahoo = finance_driver.find_element(By.ID, "yfin-usr-qry")
+    searchBoxYahoo = driver.find_element(By.ID, "yfin-usr-qry")
     searchBoxYahoo.send_keys(ticker)
     searchBoxYahoo.send_keys(Keys.RETURN)
     time.sleep(4)
 
     #click on historical data
-    histDataButton = finance_driver.find_element(By.XPATH, '//*[@id="quote-nav"]/ul/li[6]')
+    histDataButton = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="quote-nav"]/ul/li[6]')))
     histDataButton.click()
-    time.sleep(3)
+    #time.sleep(5)
 
     #choose dates button
-    dates = finance_driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')
+    time.sleep(3)
+    dates = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')
+    driver.execute_script("window.scrollTo(0, (document.body.scrollHeight)/2)")
     dates.click()
     time.sleep(3)
 
+
     #choosing the start and end dates
-    startDateReader = finance_driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[1]/input')
-    startDateReader.send_keys(startDate)
-    endDateReader = finance_driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
-    endDateReader.send_keys(endDate)
+    initial = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[1]/input')
+    initial.send_keys(Keys.ENTER)
+    startDateReader = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
+    ActionChains(driver).move_to_element(startDateReader).send_keys(startDate).perform()
+    startDateReader.send_keys('02/02/2002')
+    endDateReader = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
+    ActionChains(driver).move_to_element(endDateReader).send_keys(endDate).perform()
+    time.sleep(2)
+    #endDateReader.send_keys(endDate)
 
     #click on done button
-    done = finance_driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[3]/button[1]')
-    done.click()
+    done = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[3]/button[1]')
+    ActionChains(driver).move_to_element(done).click().perform()
     time.sleep(2)
 
     #click on apply button
-    apply = finance_driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/button')
+    apply = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/button')
     apply.click()
     time.sleep(2)
 
@@ -66,11 +85,12 @@ def findVar(ticker, startDate, endDate):
     i = 1
     while i < 10:
         xpath = '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[2]/table/tbody/tr['+str(i)+']/td[5]/span'
-        input = finance_driver.find_element(By.XPATH, xpath).text
+        input = driver.find_element(By.XPATH, xpath).text
         print(input)
         data.append(float(input))
         i+=1
-    finance_driver.close()
+    driver.close()
+    driver.switch_to.window(driver.window_handles[0])
     return variance(data)
 
 searchbox = driver.find_element(by=By.ID, value='entity-short-form')
