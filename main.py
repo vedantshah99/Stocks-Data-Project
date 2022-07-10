@@ -1,8 +1,10 @@
+from ast import expr_context
 from xml.dom.minidom import Element
 from selenium import webdriver
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -13,6 +15,8 @@ import time
 from bs4 import BeautifulSoup
 import requests
 import csv
+import re
+
 
 #driver setup
 chrome_driver = 'C:\webdrivers\chromedriver.exe'
@@ -40,40 +44,69 @@ def findVar(ticker, startDate, endDate):
     time.sleep(3)
     webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
     time.sleep(3)
-    print(ticker)
     searchBoxYahoo = driver.find_element(By.ID, "yfin-usr-qry")
     searchBoxYahoo.send_keys(ticker)
     searchBoxYahoo.send_keys(Keys.RETURN)
     time.sleep(4)
 
     #click on historical data
-    histDataButton = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="quote-nav"]/ul/li[6]')))
-    histDataButton.click()
+    try:
+        histDataButton = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="quote-nav"]/ul/li[6]')))
+        histDataButton.click()
+    except NoSuchElementException:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        print("skipped: " + ticker)
+        return 0
+    except TimeoutException:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        print("Historical Data not found for: " + ticker)
+        return 0
+    
     #time.sleep(5)
 
     #choose dates button
     time.sleep(3)
-    dates = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')
-    driver.execute_script("window.scrollTo(0, (document.body.scrollHeight)/2)")
-    dates.click()
+    try:
+        dates = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')
+        driver.execute_script("window.scrollTo(0, (document.body.scrollHeight)/2)")
+        dates.click()
+    except NoSuchElementException:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        print("Dates not found for: " + ticker)
+        return 0
     time.sleep(3)
 
 
     #choosing the start and end dates
-    initial = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[1]/input')
-    initial.send_keys(Keys.ENTER)
-    startDateReader = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
-    ActionChains(driver).move_to_element(startDateReader).send_keys(startDate).perform()
-    startDateReader.send_keys('02/02/2002')
-    endDateReader = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
-    ActionChains(driver).move_to_element(endDateReader).send_keys(endDate).perform()
-    time.sleep(2)
+    try:
+        initial = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[1]/input')
+        initial.send_keys(Keys.ENTER)
+        startDateReader = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
+        ActionChains(driver).move_to_element(startDateReader).send_keys(startDate).perform()
+        startDateReader.send_keys('02/02/2002')
+        endDateReader = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[2]/input')
+        ActionChains(driver).move_to_element(endDateReader).send_keys(endDate).perform()
+        time.sleep(2)
+    except:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        print("Start & End Dates not found for: " + ticker)
+        return 0
     #endDateReader.send_keys(endDate)
 
     #click on done button
-    done = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[3]/button[1]')
-    ActionChains(driver).move_to_element(done).click().perform()
-    time.sleep(2)
+    try:
+        done = driver.find_element(By.XPATH, '//*[@id="dropdown-menu"]/div/div[3]/button[1]')
+        ActionChains(driver).move_to_element(done).click().perform()
+        time.sleep(2)
+    except NoSuchElementException:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        print("Done Button not found for: " + ticker)
+        return 0
 
     #click on apply button
     apply = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/button')
@@ -85,12 +118,16 @@ def findVar(ticker, startDate, endDate):
     i = 1
     while i < 10:
         xpath = '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[2]/table/tbody/tr['+str(i)+']/td[5]/span'
-        input = driver.find_element(By.XPATH, xpath).text
-        print(input)
-        data.append(float(input))
+        try:
+            input = driver.find_element(By.XPATH, xpath).text
+        except NoSuchElementException:
+            i+=1
+            continue
+        data.append(float(input.replace(",","")))
         i+=1
     driver.close()
     driver.switch_to.window(driver.window_handles[0])
+    print("finished: " + ticker)
     return variance(data)
 
 searchbox = driver.find_element(by=By.ID, value='entity-short-form')
@@ -113,31 +150,41 @@ companies = []
 variances = []
 temps = driver.find_elements(By.CLASS_NAME, "entity-name")
 i =1
-while i < 10:
+variances.append(findVar("CMG", '03/13/2020', '05/27/2020'))
+while i < len(temps):
     t = temps[i].text
+    print("Searching: " + temps[i].text)
     if t.find("(") >= 0:
         tick = t[t.find("(")+1:t.find(")")]
         tick = tick[tick.find(" ")+1:len(tick)]
         companies.append(tick)
         variances.append(findVar(tick, '03/13/2020', '05/27/2020'))
     else:
-        print(t)
         docs.remove(docs[i])
     i+=1
 
 #adding covid counts to list
 i = 0
 counts = []
-while i < 10:
+
+print("docs: " + str(len(docs)))
+print("temps: " + str(len(temps)))
+print("companies: " + str(len(companies)))
+while i < len(docs):
     #click on each 10Q form
     docs[i].click();
     time.sleep(2)
-
+    print(docs[i])
     #count number of times COVID was mentioned
-    count = driver.find_element(By.CLASS_NAME, "find-counter").text
-    count = count[5:len(count)]
-          #print(companies[i] + ": " + count)
-    counts.append(int(count))
+    try:
+        count = driver.find_element(By.CLASS_NAME, "find-counter").text
+        count = count[5:len(count)]
+        counts.append(int(count))
+    except:
+        close = driver.find_element(By.CLASS_NAME, "close")
+        close.click()
+        i = i+1
+        continue
 
     time.sleep(1)
 
