@@ -24,6 +24,7 @@ profile_path = r'C:\Users\aayur\AppData\Roaming\Mozilla\Firefox\Profiles\tc9vu9f
 options=Options()
 options.set_preference('profile', profile_path)
 service = Service(r'C:\webdrivers\geckodriver.exe')
+failed = []
 
 #driver = Firefox(service=service, options=options)
 driver = webdriver.Firefox(service=service, options=options)
@@ -37,48 +38,29 @@ def variance(data):
     return variance
 
 def findVar(ticker, startDate, endDate):
-    driver.execute_script("window.open('https://finance.yahoo.com/', 'new_window')")
-    driver.switch_to.window(driver.window_handles[1])
-
-    #closing pop-up and typing in company name
-    time.sleep(3)
-    webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-    time.sleep(3)
-    searchBoxYahoo = driver.find_element(By.ID, "yfin-usr-qry")
-    searchBoxYahoo.send_keys(ticker)
-    searchBoxYahoo.send_keys(Keys.RETURN)
-    time.sleep(4)
-
-    #click on historical data
-    try:
-        histDataButton = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="quote-nav"]/ul/li[6]')))
-        histDataButton.click()
-    except NoSuchElementException:
-        driver.close()
-        driver.switch_to.window(driver.window_handles[0])
-        print("skipped: " + ticker)
-        return 0
-    except TimeoutException:
-        driver.close()
-        driver.switch_to.window(driver.window_handles[0])
-        print("Historical Data not found for: " + ticker)
-        return 0
+    driver.execute_script(f"window.open('https://finance.yahoo.com/quote/{ticker}/history?p={ticker}', 'new_window')")
     
-    #time.sleep(5)
+    driver.switch_to.window(driver.window_handles[1])
 
     #choose dates button
     time.sleep(3)
     try:
-        dates = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')
+        dates = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')))
         driver.execute_script("window.scrollTo(0, (document.body.scrollHeight)/2)")
         dates.click()
+    except TimeoutException:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        print("Timeout Exception for: " + ticker)
+        failed.append("Timeout Exception for: " + ticker)
+        return 0
     except NoSuchElementException:
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         print("Dates not found for: " + ticker)
+        failed.append("Dates not found for: " + ticker)
         return 0
     time.sleep(3)
-
 
     #choosing the start and end dates
     try:
@@ -94,6 +76,7 @@ def findVar(ticker, startDate, endDate):
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         print("Start & End Dates not found for: " + ticker)
+        failed.append("Start & End Dates not found for: " + ticker)
         return 0
     #endDateReader.send_keys(endDate)
 
@@ -106,6 +89,7 @@ def findVar(ticker, startDate, endDate):
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         print("Done Button not found for: " + ticker)
+        failed.append("Done Button not found for: " + ticker)
         return 0
 
     #click on apply button
@@ -127,7 +111,7 @@ def findVar(ticker, startDate, endDate):
         i+=1
     driver.close()
     driver.switch_to.window(driver.window_handles[0])
-    print("finished: " + ticker)
+
     return variance(data)
 
 searchbox = driver.find_element(by=By.ID, value='entity-short-form')
@@ -149,19 +133,26 @@ docs = WebDriverWait(driver, 10).until(
 companies = []
 variances = []
 temps = driver.find_elements(By.CLASS_NAME, "entity-name")
-i =1
-variances.append(findVar("CMG", '03/13/2020', '05/27/2020'))
-while i < len(temps):
+variances.append(findVar('KBRS', '03/13/2020', '05/27/2020'))
+variances.append(findVar('AAN', '03/13/2020', '05/27/2020'))
+variances.append(findVar('PRO', '03/13/2020', '05/27/2020'))
+for i in range(1,len(temps)):
+    print(i)
     t = temps[i].text
-    print("Searching: " + temps[i].text)
     if t.find("(") >= 0:
         tick = t[t.find("(")+1:t.find(")")]
         tick = tick[tick.find(" ")+1:len(tick)]
         companies.append(tick)
         variances.append(findVar(tick, '03/13/2020', '05/27/2020'))
     else:
+        print("i = " + str(i) + " and t = " + str(t) + ", len(temps) = "+ str(len(temps)) +", and len(docs) = "+ str(len(docs)))
+
         docs.remove(docs[i])
-    i+=1
+
+with open('fails.csv','w') as file:
+        writer = csv.writer(file)
+        for val in failed:
+            writer.writerow(val)
 
 #adding covid counts to list
 i = 0
