@@ -2,7 +2,7 @@ import csv
 
 list1 = [1,2,3,4,5,6]
 list2 = ["red", "orange", "yellow", "green", "blue", "purple"]
-list3 = ['a', 'b', 'c', 'd', 'e', 'f']
+list3 = ['a', 'b', 'c', 'd', 'e', 'f', 'j']
 
 with open('test.csv','w', newline='') as file:
     writer = csv.writer(file)
