@@ -1,5 +1,5 @@
 from ast import expr_context
-from xml.dom.minidom import Element
+from xml.dom.minidom import Element #git is fire af
 from selenium import webdriver
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
