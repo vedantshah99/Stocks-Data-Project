@@ -23,7 +23,7 @@ chrome_driver = 'C:\webdrivers\chromedriver.exe'
 profile_path = r'C:\Users\aayur\AppData\Roaming\Mozilla\Firefox\Profiles\tc9vu9fu.default'
 options=Options()
 options.set_preference('profile', profile_path)
-service = Service(r'C:\webdrivers\geckodriver.exe')
+service = Service(r'C:\webdrivers\geckodriver.exe', log_path='log/geckodriver.log')
 failed = []
 
 #driver = Firefox(service=service, options=options)
@@ -148,7 +148,7 @@ for i in range(1,len(listOfCompanyNames)):
         #docs.remove(docs[i])
         failed.append("Couldn't find ticker for: "+ fullCompanyName)
 
-with open('fails.csv','w', newline='') as file:
+with open('data/fails.csv','w', newline='') as file:
         writer = csv.writer(file)
         for val in failed:
             writer.writerow([val])
@@ -182,7 +182,7 @@ print("companies: " + str(len(companies)))
 print("counts: " + str(len(counts)))
 print("variances: " + str(len(variances)))
 
-with open('list.csv','w', newline='') as file:
+with open('data/list.csv','w', newline='') as file:
     writer = csv.writer(file)
     for i in range(len(companies)):
         if companies[i] != 'N/A' and counts[i] != -1 and variances[i] != -1:
