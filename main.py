@@ -53,13 +53,13 @@ def findVar(ticker, startDate, endDate):
         driver.switch_to.window(driver.window_handles[0])
         print("Timeout Exception for: " + ticker)
         failed.append("Timeout Exception for: " + ticker)
-        return 0
+        return -1
     except NoSuchElementException:
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         print("Dates not found for: " + ticker)
         failed.append("Dates not found for: " + ticker)
-        return 0
+        return -1
     time.sleep(3)
 
     #choosing the start and end dates
@@ -77,7 +77,7 @@ def findVar(ticker, startDate, endDate):
         driver.switch_to.window(driver.window_handles[0])
         print("Start & End Dates not found for: " + ticker)
         failed.append("Start & End Dates not found for: " + ticker)
-        return 0
+        return -1
     #endDateReader.send_keys(endDate)
 
     #click on done button
@@ -90,7 +90,7 @@ def findVar(ticker, startDate, endDate):
         driver.switch_to.window(driver.window_handles[0])
         print("Done Button not found for: " + ticker)
         failed.append("Done Button not found for: " + ticker)
-        return 0
+        return -1
 
     #click on apply button
     apply = driver.find_element(By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/button')
@@ -128,44 +128,38 @@ time.sleep(2)
 docs = WebDriverWait(driver, 10).until(
     EC.presence_of_all_elements_located((By.CLASS_NAME, "preview-file"))
 )
-
 #adding company names to list
 companies = []
 variances = []
-temps = driver.find_elements(By.CLASS_NAME, "entity-name")
-variances.append(findVar('KBRS', '03/13/2020', '05/27/2020'))
-variances.append(findVar('AAN', '03/13/2020', '05/27/2020'))
-variances.append(findVar('PRO', '03/13/2020', '05/27/2020'))
-for i in range(1,len(temps)):
+listOfCompanyNames = driver.find_elements(By.CLASS_NAME, "entity-name")
+
+for i in range(1,len(listOfCompanyNames)):
     print(i)
-    t = temps[i].text
-    if t.find("(") >= 0:
-        tick = t[t.find("(")+1:t.find(")")]
+    fullCompanyName = listOfCompanyNames[i].text
+    if fullCompanyName.find("(") >= 0:
+        tick = fullCompanyName[fullCompanyName.find("(")+1:fullCompanyName.find(")")]
         tick = tick[tick.find(" ")+1:len(tick)]
         companies.append(tick)
         variances.append(findVar(tick, '03/13/2020', '05/27/2020'))
     else:
-        print("i = " + str(i) + " and t = " + str(t) + ", len(temps) = "+ str(len(temps)) +", and len(docs) = "+ str(len(docs)))
+        companies.append("N/A")
+        variances.append("N/A")
+        print("Couldn't find ticker for: "+ fullCompanyName)
+        #docs.remove(docs[i])
+        failed.append("Couldn't find ticker for: "+ fullCompanyName)
 
-        docs.remove(docs[i])
-
-with open('fails.csv','w') as file:
+with open('fails.csv','w', newline='') as file:
         writer = csv.writer(file)
         for val in failed:
-            writer.writerow(val)
+            writer.writerow([val])
 
 #adding covid counts to list
-i = 0
 counts = []
 
-print("docs: " + str(len(docs)))
-print("temps: " + str(len(temps)))
-print("companies: " + str(len(companies)))
-while i < len(docs):
+for i in range(len(docs)):
     #click on each 10Q form
     docs[i].click();
     time.sleep(2)
-    print(docs[i])
     #count number of times COVID was mentioned
     try:
         count = driver.find_element(By.CLASS_NAME, "find-counter").text
@@ -174,7 +168,7 @@ while i < len(docs):
     except:
         close = driver.find_element(By.CLASS_NAME, "close")
         close.click()
-        i = i+1
+        counts.append(-1)
         continue
 
     time.sleep(1)
@@ -183,10 +177,13 @@ while i < len(docs):
     close = driver.find_element(By.CLASS_NAME, "close")
     close.click()
 
-    i = i+1
+print("docs: " + str(len(docs)))
+print("companies: " + str(len(companies)))
+print("counts: " + str(len(counts)))
+print("variances: " + str(len(variances)))
 
-with open('list.csv','w') as file:
+with open('list.csv','w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(companies)
-    writer.writerow(counts)
-    writer.writerow(variances)
+    for i in range(len(companies)):
+        if companies[i] != 'N/A' and counts[i] != -1 and variances[i] != -1:
+            writer.writerow([str(companies[i])]+ [str(counts[i])] + [str(variances[i])])
