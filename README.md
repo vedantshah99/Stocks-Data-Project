@@ -1,4 +1,5 @@
 # Stocks-Data-Project
+This project was built as a way to aquire data that would help us track the effects of COVID-19 on the performances of companies during its rise. It uses Selenium to automate the process of navigating and going through entries in a website, and copying data into a .csv that can be put into Pandas. 
 
 Uses Selenium to navigate to https://www.sec.gov/edgar/search/#
   - automatically enters any word into the system and looks for published 10Q forms
