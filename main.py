@@ -18,18 +18,22 @@ import csv
 import re
 
 
-#driver setup
+#### SETUP DRIVER
 chrome_driver = 'C:\webdrivers\chromedriver.exe'
 profile_path = r'C:\Users\aayur\AppData\Roaming\Mozilla\Firefox\Profiles\tc9vu9fu.default'
 options=Options()
 options.set_preference('profile', profile_path)
 service = Service(r'C:\webdrivers\geckodriver.exe', log_path='log/geckodriver.log')
-failed = []
-
-#driver = Firefox(service=service, options=options)
 driver = webdriver.Firefox(service=service, options=options)
 driver.get('https://www.sec.gov/edgar/search/#/q=covid&dateRange=custom&startdt=2017-06-26&enddt=2020-05-27')
 
+#### VARIABLES
+failed = []
+companies = []
+variances = []
+counts = []
+
+#### VARIANCE CALCULATOR FUNCTION
 def variance(data):
     n = len(data)
     mean = sum(data) / n
@@ -37,12 +41,12 @@ def variance(data):
     variance = sum(deviations) / n
     return variance
 
+# FINDS STOCK DATA ON YAHOO FINANCE AND RETURN VARIANCE
 def findVar(ticker, startDate, endDate):
     driver.execute_script(f"window.open('https://finance.yahoo.com/quote/{ticker}/history?p={ticker}', 'new_window')")
-    
     driver.switch_to.window(driver.window_handles[1])
 
-    #choose dates button
+    #click on "dates" button
     time.sleep(3)
     try:
         dates = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="Col1-1-HistoricalDataTable-Proxy"]/section/div[1]/div[1]/div[1]/div/div/div/span')))
@@ -78,7 +82,6 @@ def findVar(ticker, startDate, endDate):
         print("Start & End Dates not found for: " + ticker)
         failed.append("Start & End Dates not found for: " + ticker)
         return -1
-    #endDateReader.send_keys(endDate)
 
     #click on done button
     try:
@@ -114,25 +117,27 @@ def findVar(ticker, startDate, endDate):
 
     return variance(data)
 
+#### TYPE "COVID" INTO SEARCH
 searchbox = driver.find_element(by=By.ID, value='entity-short-form')
 searchbox.send_keys('covid')
 searchbox.send_keys(Keys.RETURN)
 
+#### FILTER BY 10Q DOC
 button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, 'headingTwo2')))
 button.click()
-
 tenq = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[3]/div[2]/div[1]/div[2]/div[2]/div[2]/div/table/tbody/tr[2]/td/a')))
 tenq.click()
 time.sleep(2)
 
+#### COLLECT ALL DOCUMENT FILES
 docs = WebDriverWait(driver, 10).until(
     EC.presence_of_all_elements_located((By.CLASS_NAME, "preview-file"))
 )
-#adding company names to list
-companies = []
-variances = []
+
+#### ADD COMPANY NAMES TO LIST
 listOfCompanyNames = driver.find_elements(By.CLASS_NAME, "entity-name")
 
+#### GO THROUGH EACH COMPANY AND FIND ITS STOCK DATA
 for i in range(1,len(listOfCompanyNames)):
     print(i)
     fullCompanyName = listOfCompanyNames[i].text
@@ -142,22 +147,20 @@ for i in range(1,len(listOfCompanyNames)):
         companies.append(tick)
         variances.append(findVar(tick, '03/13/2020', '05/27/2020'))
     else:
+        # COULDN'T FIND A STOCK TICKER
         companies.append("N/A")
         variances.append("N/A")
         print("Couldn't find ticker for: "+ fullCompanyName)
-        #docs.remove(docs[i])
         failed.append("Couldn't find ticker for: "+ fullCompanyName)
 
+#### WRITE ALL FAILED DATA INTO A CSV FILE
 with open('data/fails.csv','w', newline='') as file:
         writer = csv.writer(file)
         for val in failed:
             writer.writerow([val])
 
-#adding covid counts to list
-counts = []
-
+# ITERATE THROUGH EACH 10Q DOC AND FIND COVID COUNTS
 for i in range(len(docs)):
-    #click on each 10Q form
     docs[i].click();
     time.sleep(2)
     #count number of times COVID was mentioned
@@ -182,6 +185,7 @@ print("companies: " + str(len(companies)))
 print("counts: " + str(len(counts)))
 print("variances: " + str(len(variances)))
 
+#### WRITE ALL DATA TO CSV FILE
 with open('data/list.csv','w', newline='') as file:
     writer = csv.writer(file)
     for i in range(len(companies)):
